@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>計測アプリ</title>
+<style>
+  body {
+    font-family: sans-serif;
+    max-width: 600px;
+    margin: 20px auto;
+    padding: 0 16px;
+  }
+  #timer {
+    font-size: 48px;
+    text-align: center;
+    margin: 20px 0;
+    font-variant-numeric: tabular-nums;
+  }
+  .controls {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  button {
+    padding: 8px 10px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  .main-controls {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  .main-controls button {
+    padding: 16px 24px;
+    font-size: 20px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  th, td {
+    border: 1px solid #ccc;
+    padding: 8px;
+    text-align: center;
+  }
+  th {
+    background: #f0f0f0;
+  }
+  .name-cell {
+    cursor: text;
+  }
+</style>
+</head>
+<body>
+<h1>計測アプリ</h1>
+
+<div id="timer">00:00</div>
+
+<div class="main-controls">
+  <button id="startBtn">スタート</button>
+  <button id="lapBtn">ラップ</button>
+</div>
+
+<div class="controls">
+  <button id="undoBtn">一つ前のラップを削除</button>
+  <button id="resetBtn">リセット</button>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>通過順</th>
+      <th>名前</th>
+      <th>先頭との差</th>
+      <th>前との差</th>
+    </tr>
+  </thead>
+  <tbody id="resultBody"></tbody>
+</table>
+
+<script>
+let startTime = null;
+let timerInterval = null;
+let laps = [];
+
+function formatSec(sec) {
+  const min = Math.floor(sec / 60);
+  const s = sec % 60;
+  return String(min).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+}
+
+document.getElementById('startBtn').addEventListener('click', () => {
+  if (startTime) return;
+  startTime = Date.now();
+  timerInterval = setInterval(() => {
+    document.getElementById('timer').textContent = formatSec(Math.floor((Date.now() - startTime) / 1000));
+  }, 100);
+
+  // スタートを押した瞬間 = 先頭の選手が通過した瞬間
+  laps.push({ time: 0, name: '選手1' });
+  renderTable();
+});
+
+document.getElementById('lapBtn').addEventListener('click', () => {
+  if (!startTime) return;
+  const elapsed = Date.now() - startTime;
+  const name = '選手' + (laps.length + 1);
+  laps.push({ time: elapsed, name: name });
+  renderTable();
+});
+
+document.getElementById('undoBtn').addEventListener('click', () => {
+  if (!confirm('1つ前のラップを削除しますか?')) return;
+  laps.pop();
+  renderTable();
+});
+
+document.getElementById('resetBtn').addEventListener('click', () => {
+  if (!confirm('リセットしますか?')) return;
+  clearInterval(timerInterval);
+  startTime = null;
+  laps = [];
+  document.getElementById('timer').textContent = '00:00';
+  renderTable();
+});
+
+// 1秒未満の差でも0秒にはせず、必ず1秒以上として表示する
+function diffSec(ms) {
+  return Math.max(1, Math.floor(ms / 1000));
+}
+
+function renderTable() {
+  const tbody = document.getElementById('resultBody');
+  tbody.innerHTML = '';
+  laps.forEach((lap, i) => {
+    const topDiff = i === 0 ? '-' : formatSec(diffSec(lap.time - laps[0].time));
+    const prevDiff = i === 0 ? '-' : formatSec(diffSec(lap.time - laps[i - 1].time));
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td>' + (i + 1) + '</td>' +
+      '<td class="name-cell" contenteditable="true" data-index="' + i + '">' + lap.name + '</td>' +
+      '<td>' + topDiff + '</td><td>' + prevDiff + '</td>';
+    tbody.appendChild(tr);
+  });
+}
+
+// 名前セルの編集内容をlaps配列にも反映しておく
+document.getElementById('resultBody').addEventListener('focusout', (e) => {
+  if (!e.target.classList.contains('name-cell')) return;
+  const i = e.target.dataset.index;
+  laps[i].name = e.target.textContent.trim() || laps[i].name;
+});
+</script>
+</body>
+</html>
